@@ -20,6 +20,7 @@ app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 100 }));
 
 // All routes under /api
 app.use('/api', router);
+console.log('Routes mounted:', router.stack.map((r: any) => r.regexp));
 
 // 404 handler
 app.use((req, res) => {
