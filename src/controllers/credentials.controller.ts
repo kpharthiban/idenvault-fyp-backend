@@ -10,7 +10,7 @@ export const issueCredential = async (req: Request, res: Response, next: NextFun
     const trusted = await blockchainService.isIssuerTrusted(issuerWallet);
     if (!trusted) throw new AppError('Not a trusted issuer', 403);
 
-    const { ref_id, title, description, grade, holder_wallet, expires_at, ipfs_cid, tx_hash } = req.body;
+    const { ref_id, title, description, grade, holder_wallet, expires_at, ipfs_cid, tx_hash, data_hash } = req.body;
     if (!ref_id || !title || !holder_wallet) {
       throw new AppError('ref_id, title, and holder_wallet are required', 400);
     }
@@ -24,7 +24,8 @@ export const issueCredential = async (req: Request, res: Response, next: NextFun
       issuer_wallet: issuerWallet,
       expires_at,
       ipfs_cid,
-      tx_hash
+      tx_hash,
+      data_hash,
     });
 
     res.status(201).json(credential);
@@ -37,8 +38,16 @@ export const issueCredential = async (req: Request, res: Response, next: NextFun
 export const listCredentials = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const wallet = (req as any).wallet;
-    const credentials = await supabaseService.getCredentialsByHolder(wallet);
-    res.json(credentials);
+    const role = req.query.role as string;
+
+    let credentials;
+    if (role === 'issuer') {
+      credentials = await supabaseService.getCredentialsByIssuer(wallet);
+    } else {
+      credentials = await supabaseService.getCredentialsByHolder(wallet);
+    }
+
+    res.json({ credentials });
   } catch (err) {
     next(err);
   }
@@ -51,15 +60,14 @@ export const verifyCredential = async (req: Request, res: Response, next: NextFu
     const dbRecord = await supabaseService.getCredentialByRefId(refId);
     if (!dbRecord) throw new AppError('Credential not found', 404);
 
-    const dataHash = dbRecord.ref_id + dbRecord.holder_wallet + dbRecord.issuer_wallet;
-    const chain = await blockchainService.verifyCredential(refId, dataHash);
+    const chain = await blockchainService.getCredentialOnChain(refId, dbRecord.data_hash);
 
     res.json({
       ...dbRecord,
       blockchain: {
         valid: chain.valid,
         revoked: chain.revoked,
-        issuer: chain.issuer
+        issuer: chain.issuer,
       }
     });
   } catch (err) {

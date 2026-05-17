@@ -1,8 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import { ethers } from 'ethers';
 import crypto from 'crypto';
+import { contracts } from '../config/contracts';
+import { env } from '../config/env';
 
-// In-memory nonce store (fine for FYP — use Redis in production)
 const nonceStore = new Map<string, string>();
 
 export const getNonce = (req: Request, res: Response) => {
@@ -13,29 +14,42 @@ export const getNonce = (req: Request, res: Response) => {
   res.json({ nonce });
 };
 
-export const verifyWallet = (req: Request, res: Response, next: NextFunction) => {
+export const verifyWallet = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { wallet, signature } = req.body;
     const expectedNonce = nonceStore.get(wallet.toLowerCase());
     if (!expectedNonce) return res.status(400).json({ error: 'Request a nonce first' });
 
-    const recovered = ethers.verifyMessage(ethers.getBytes('0x' + expectedNonce), signature).toLowerCase();
+    const recovered = ethers.verifyMessage(expectedNonce, signature).toLowerCase();
     if (recovered !== wallet.toLowerCase()) {
       return res.status(401).json({ error: 'Signature verification failed' });
     }
 
-    // Single-use — delete immediately after verification
     nonceStore.delete(wallet.toLowerCase());
 
-    const role = getRole(wallet);
+    const role = await getRole(wallet);  // ← now async
     res.json({ authenticated: true, wallet, role });
   } catch (err) {
     next(err);
   }
 };
 
-const getRole = (wallet: string): string => {
-  if (wallet.toLowerCase() === process.env.ADMIN_WALLET?.toLowerCase()) return 'admin';
-  // Issuer check via IssuerRegistry contract is wired in Phase 4
+const getRole = async (wallet: string): Promise<string> => {
+  if (wallet.toLowerCase() === env.ADMIN_WALLET.toLowerCase()) return 'admin';
+
+  try {
+    const provider = new ethers.JsonRpcProvider(env.INFURA_URL);
+    const registry = new ethers.Contract(
+      contracts.issuerRegistry.address,
+      contracts.issuerRegistry.abi,
+      provider
+    );
+    const isTrusted: boolean = await registry.isIssuerTrusted(wallet);
+    if (isTrusted) return 'issuer';
+  } catch (err) {
+    console.error('IssuerRegistry check failed:', err);
+    // fail safe → treat as student if blockchain is unreachable
+  }
+
   return 'student';
 };

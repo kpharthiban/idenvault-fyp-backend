@@ -22,9 +22,19 @@ export const blockchainService = {
     return await issuerRegistry.isIssuerTrusted(wallet);
   },
 
-  async verifyCredential(refId: string, dataHash: string) {
-    const hash = ethers.keccak256(ethers.toUtf8Bytes(dataHash));
-    const [valid, revoked, issuer] = await credentialAnchor.verifyCredential(refId, hash);
-    return { valid, revoked, issuer };
+  async getCredentialOnChain(refId: string, storedDataHash: string) {
+    try {
+      // Read from the public mapping getter — credentials(refId)
+      const result = await credentialAnchor.credentials(refId);
+      // result = [dataHash (bytes32), issuer (address), issuedAt (uint256), revoked (bool)]
+      const [onChainHash, issuer, issuedAt, revoked] = result;
+
+      const exists = BigInt(issuedAt) > 0n;
+      const valid = exists && onChainHash === storedDataHash;
+
+      return { valid, revoked, issuer };
+    } catch {
+      return { valid: false, revoked: false, issuer: '' };
+    }
   }
 };

@@ -11,6 +11,7 @@ export const supabaseService = {
     expires_at?: string;
     ipfs_cid?: string;
     tx_hash?: string;
+    data_hash?: string;
   }) {
     const { data: row, error } = await supabase
       .from('credentials')
@@ -19,6 +20,17 @@ export const supabaseService = {
       .single();
     if (error) throw new Error(error.message);
     return row;
+  },
+
+  async getCredentialsByIssuer(issuerWallet: string) {
+    const { data, error } = await supabase
+      .from('credentials')
+      .select('*')
+      .eq('issuer_wallet', issuerWallet.toLowerCase())
+      .order('issued_at', { ascending: false });
+
+    if (error) throw new Error(error.message);
+    return data;
   },
 
   async getCredentialsByHolder(holderWallet: string) {
