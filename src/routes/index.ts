@@ -5,6 +5,7 @@ import { ipfsRouter } from './ipfs.routes';
 import { aiRouter } from './ai.routes';
 import { templatesRouter } from './templates.routes';
 import { profileRouter } from './profile.routes';
+import { holderProfileRouter } from './holderProfile.routes';
 
 const router = Router();
 
@@ -14,5 +15,6 @@ router.use('/ipfs', ipfsRouter);
 router.use('/ai', aiRouter);
 router.use('/templates', templatesRouter);
 router.use('/profile', profileRouter);
+router.use('/holder-profile', holderProfileRouter);
 
 export { router };

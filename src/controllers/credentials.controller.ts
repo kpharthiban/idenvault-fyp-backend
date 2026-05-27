@@ -10,7 +10,7 @@ export const issueCredential = async (req: Request, res: Response, next: NextFun
     const trusted = await blockchainService.isIssuerTrusted(issuerWallet);
     if (!trusted) throw new AppError('Not a trusted issuer', 403);
 
-    const { ref_id, title, description, grade, holder_wallet, expires_at, ipfs_cid, tx_hash, data_hash } = req.body;
+    const { ref_id, title, holder_wallet, expires_at, ipfs_cid, tx_hash, data_hash, metadata_cid, template_id, type } = req.body;
     if (!ref_id || !title || !holder_wallet) {
       throw new AppError('ref_id, title, and holder_wallet are required', 400);
     }
@@ -18,14 +18,15 @@ export const issueCredential = async (req: Request, res: Response, next: NextFun
     const credential = await supabaseService.createCredential({
       ref_id,
       title,
-      description,
-      grade,
       holder_wallet: holder_wallet.toLowerCase(),
       issuer_wallet: issuerWallet,
       expires_at,
       ipfs_cid,
       tx_hash,
       data_hash,
+      metadata_cid,
+      template_id,
+      type,
     });
 
     res.status(201).json(credential);

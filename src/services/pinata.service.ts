@@ -13,5 +13,13 @@ export const pinataService = {
     const result = await pinata.upload.public.file(file);
 
     return result.cid; // The IPFS Content Identifier
+  },
+
+  async uploadJSON(data: Record<string, any>, name: string): Promise<string> {
+    const result = await pinata.upload.public
+      .json(data)
+      .name(name);
+
+    return result.cid;
   }
 };

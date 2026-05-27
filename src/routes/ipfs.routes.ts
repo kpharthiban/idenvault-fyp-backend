@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import multer from 'multer';
 import { requireWallet } from '../middleware/walletAuth';
-import { uploadToIPFS } from '../controllers/ipfs.controller';
+import { uploadToIPFS, uploadMetadataToIPFS } from '../controllers/ipfs.controller';
 
 const router = Router();
 
@@ -11,5 +11,6 @@ const upload = multer({
 });
 
 router.post('/upload', requireWallet, upload.single('file'), uploadToIPFS);
+router.post('/upload-metadata', requireWallet, uploadMetadataToIPFS);
 
 export { router as ipfsRouter };

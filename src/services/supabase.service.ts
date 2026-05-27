@@ -4,14 +4,15 @@ export const supabaseService = {
   async createCredential(data: {
     ref_id: string;
     title: string;
-    description?: string;
-    grade?: string;
     holder_wallet: string;
     issuer_wallet: string;
     expires_at?: string;
     ipfs_cid?: string;
     tx_hash?: string;
     data_hash?: string;
+    metadata_cid?: string;
+    template_id?: string;
+    type?: string;
   }) {
     const { data: row, error } = await supabase
       .from('credentials')
