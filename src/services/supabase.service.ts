@@ -53,6 +53,27 @@ export const supabaseService = {
     return data;
   },
 
+  async createCredentialsBatch(records: Array<{
+    ref_id: string;
+    title: string;
+    holder_wallet: string;
+    issuer_wallet: string;
+    expires_at?: string;
+    ipfs_cid?: string;
+    tx_hash?: string;
+    data_hash?: string;
+    metadata_cid?: string;
+    template_id?: string;
+    type?: string;
+  }>) {
+    const { data, error } = await supabase
+      .from('credentials')
+      .insert(records)
+      .select();
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
   async updateCredentialStatus(refId: string, status: string) {
     const { error } = await supabase
       .from('credentials')

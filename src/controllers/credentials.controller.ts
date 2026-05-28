@@ -93,5 +93,50 @@ export const revokeCredential = async (req: Request, res: Response, next: NextFu
   }
 };
 
+// POST /api/credentials/batch — issuer records multiple credentials after batch anchoring
+export const issueCredentialsBatch = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const issuerWallet = (req as any).wallet;
+    const trusted = await blockchainService.isIssuerTrusted(issuerWallet);
+    if (!trusted) throw new AppError('Not a trusted issuer', 403);
+
+    const { credentials: credentialsList } = req.body;
+
+    if (!Array.isArray(credentialsList) || credentialsList.length === 0) {
+      throw new AppError('credentials array is required and must not be empty', 400);
+    }
+
+    if (credentialsList.length > 50) {
+      throw new AppError('Maximum 50 credentials per batch', 400);
+    }
+
+    // Validate each record has required fields
+    for (const cred of credentialsList) {
+      if (!cred.ref_id || !cred.title || !cred.holder_wallet) {
+        throw new AppError('Each credential must have ref_id, title, and holder_wallet', 400);
+      }
+    }
+
+    // Stamp issuer wallet on all records
+    const records = credentialsList.map((cred: any) => ({
+      ref_id: cred.ref_id,
+      title: cred.title,
+      type: cred.type,
+      holder_wallet: cred.holder_wallet.toLowerCase(),
+      issuer_wallet: issuerWallet,
+      template_id: cred.template_id,
+      ipfs_cid: cred.ipfs_cid || null,
+      metadata_cid: cred.metadata_cid || null,
+      tx_hash: cred.tx_hash || null,
+      data_hash: cred.data_hash || null,
+    }));
+
+    const saved = await supabaseService.createCredentialsBatch(records);
+    res.status(201).json({ credentials: saved, count: saved.length });
+  } catch (err) {
+    next(err);
+  }
+};
+
 // stub — not used directly but imported by routes
 export const getCredential = verifyCredential;
