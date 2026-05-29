@@ -158,4 +158,35 @@ export const templatesService = {
     if (error) throw new Error(error.message);
     return true;
   },
+
+  /**
+   * Build a CSV string (headers + example row) from a template's field definitions.
+   */
+  generateCsvHeaders(template: { fields: any[] }): string {
+    const headers: string[] = ['wallet_address'];
+    const examples: string[] = ['0x...'];
+
+    for (const field of template.fields) {
+      if (field.type === 'file') continue;
+
+      headers.push(field.name);
+
+      switch (field.type) {
+        case 'date':
+          examples.push('2026-01-01');
+          break;
+        case 'select':
+          examples.push(field.options?.[0] ?? 'Option');
+          break;
+        case 'textarea':
+          examples.push('Description text here');
+          break;
+        default:
+          examples.push('Example value');
+          break;
+      }
+    }
+
+    return headers.join(',') + '\n' + examples.join(',') + '\n';
+  },
 };

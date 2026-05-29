@@ -80,6 +80,23 @@ export const updateTemplate = async (req: Request, res: Response, next: NextFunc
   }
 };
 
+// GET /api/templates/:id/csv-template
+export const downloadCsvTemplate = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const wallet = (req as any).wallet;
+    const id = req.params.id as string;
+    const template = await templatesService.getTemplateById(id, wallet);
+    const csv = templatesService.generateCsvHeaders(template);
+
+    const safeTitle = template.title.replace(/[^a-zA-Z0-9]/g, '_');
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="${safeTitle}_bulk_template.csv"`);
+    res.send(csv);
+  } catch (err) {
+    next(err);
+  }
+};
+
 // DELETE /api/templates/:id
 export const deleteTemplate = async (req: Request, res: Response, next: NextFunction) => {
   try {
