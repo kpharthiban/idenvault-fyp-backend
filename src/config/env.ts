@@ -16,4 +16,5 @@ export const env = {
   GEMINI_API_KEY: required('GEMINI_API_KEY'),
   ADMIN_WALLET: required('ADMIN_WALLET'),
   FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:3000',
+  PRESENTATION_TOKEN_SECRET: required('PRESENTATION_TOKEN_SECRET'),
 };

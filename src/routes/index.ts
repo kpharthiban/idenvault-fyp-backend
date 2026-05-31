@@ -8,11 +8,13 @@ import { profileRouter } from './profile.routes';
 import { holderProfileRouter } from './holderProfile.routes';
 import { adminRouter } from './admin.routes';
 import { externalSystemRouter } from './externalSystem.routes';
+import { verifyRouter } from './verify.routes';
 
 const router = Router();
 
 router.use('/auth', authRouter);
 router.use('/credentials', credentialsRouter);
+router.use('/verify', verifyRouter);
 router.use('/ipfs', ipfsRouter);
 router.use('/ai', aiRouter);
 router.use('/templates', templatesRouter);
