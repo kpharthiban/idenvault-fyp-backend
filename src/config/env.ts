@@ -10,7 +10,7 @@ const required = (key: string): string => {
 export const env = {
   PORT: process.env.PORT || '5000',
   SUPABASE_URL: required('SUPABASE_URL'),
-  SUPABASE_ANON_KEY: required('SUPABASE_ANON_KEY'),
+  SUPABASE_KEY: required('SUPABASE_KEY'),
   INFURA_URL: required('INFURA_URL'),
   PINATA_JWT: required('PINATA_JWT'),
   GEMINI_API_KEY: required('GEMINI_API_KEY'),

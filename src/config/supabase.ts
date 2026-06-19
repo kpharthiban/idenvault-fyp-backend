@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { env } from './env';
 
-export const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY);
+export const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_KEY);
 
 // Run this once to verify the connection works
 export const testConnection = async () => {
