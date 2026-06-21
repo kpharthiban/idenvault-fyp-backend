@@ -129,6 +129,7 @@ export const issueCredentialsBatch = async (req: Request, res: Response, next: N
       metadata_cid: cred.metadata_cid || null,
       tx_hash: cred.tx_hash || null,
       data_hash: cred.data_hash || null,
+      expires_at: cred.expires_at || null,
     }));
 
     const saved = await supabaseService.createCredentialsBatch(records);
