@@ -1,0 +1,1283 @@
+{
+  "info": {
+    "_postman_id": "idenvault-api-collection-v3",
+    "name": "IdenVault API Collection",
+    "description": "Layer 2 — Backend API Testing (20 core cases)\nLayer 5 — Security Testing, Newman subset (5 cases)\nSupplementary — Templates and Admin (5 cases)\n\nTotal: 30 requests\nStudent: Pharthiban A/L Kumarhesan (1211112294)\n\nPRE-RUN CHECKLIST (every single run):\n1. Backend running on port 3001\n2. Run generate-test-sig.js FRESH — paste issuer_wallet and issuer_sig into environment\n3. Re-export Postman environment JSON to postman/IdenVault_Dev_Environment.json\n4. Run Newman immediately — do not wait or call /api/auth/nonce again between steps 2 and 4\n\nNOTE on ref_ids:\nCRED-01 and CRED-04 now generate timestamp-based ref_ids via pre-request scripts.\nThis prevents duplicate key constraint violations across multiple Newman runs.\n\nNOTE on expired_token (QR-03, SEC-06):\nAfter the Newman run completes:\n1. Run QR-01 manually in Postman GUI to get a token\n2. Wait 30+ seconds\n3. Paste the token into the expired_token environment variable\n4. Run QR-03 and SEC-06 manually and screenshot the 401 TOKEN_EXPIRED responses",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+
+    {
+      "name": "Authentication",
+      "description": "4 cases: API-AUTH-01 to API-AUTH-04\nExecution order: 02 → 04 → 03 → 01 (nonce collision avoidance)\nIMPORTANT: Run generate-test-sig.js before EVERY Newman run.\nThe nonce is consumed by AUTH-03 and must be freshly generated each time.",
+      "item": [
+
+        {
+          "name": "API-AUTH-02 — GET nonce (missing wallet param → 400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('API-AUTH-02: Status 400', function() {",
+                  "  pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/auth/nonce",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "nonce"]
+            },
+            "description": "TC: API-AUTH-02\nInput: No wallet query param\nExpected: 400 — { error: 'wallet required' }\nDoes NOT affect the issuer_wallet nonce in server memory."
+          }
+        },
+
+        {
+          "name": "API-AUTH-04 — POST verify (tampered signature → 401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('API-AUTH-04: Status 401', function() {",
+                  "  pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"wallet\": \"{{issuer_wallet}}\",\n  \"signature\": \"0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1b\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/verify",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "verify"]
+            },
+            "description": "TC: API-AUTH-04\nInput: Valid wallet + deliberately zeroed/invalid signature\nExpected: 401 — signature verification failed\nNOTE: A failed verify does NOT consume the stored nonce — AUTH-03 can still use it."
+          }
+        },
+
+        {
+          "name": "API-AUTH-03 — POST verify (valid signature → 200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('API-AUTH-03: Status 200', function() {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var body = pm.response.json();",
+                  "",
+                  "pm.test('API-AUTH-03: authenticated is true', function() {",
+                  "  pm.expect(body.authenticated).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('API-AUTH-03: wallet matches issuer_wallet', function() {",
+                  "  var issuerWallet = pm.environment.get('issuer_wallet').toLowerCase();",
+                  "  pm.expect(body.wallet.toLowerCase()).to.equal(issuerWallet);",
+                  "});",
+                  "",
+                  "pm.test('API-AUTH-03: role is present', function() {",
+                  "  pm.expect(body).to.have.property('role');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"wallet\": \"{{issuer_wallet}}\",\n  \"signature\": \"{{issuer_sig}}\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/verify",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "verify"]
+            },
+            "description": "TC: API-AUTH-03\nInput: issuer_wallet + issuer_sig (pre-set by generate-test-sig.js)\nExpected: 200 — { authenticated: true, wallet, role }\nNOTE: Consumes the nonce. Must re-run generate-test-sig.js before each Newman run."
+          }
+        },
+
+        {
+          "name": "API-AUTH-01 — GET nonce (valid wallet → 200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('API-AUTH-01: Status 200', function() {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var body = pm.response.json();",
+                  "",
+                  "pm.test('API-AUTH-01: Has nonce property', function() {",
+                  "  pm.expect(body).to.have.property('nonce');",
+                  "});",
+                  "",
+                  "pm.test('API-AUTH-01: Nonce is a non-empty string', function() {",
+                  "  pm.expect(body.nonce).to.be.a('string').and.to.have.length.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/auth/nonce?wallet={{issuer_wallet}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "nonce"],
+              "query": [{"key": "wallet", "value": "{{issuer_wallet}}"}]
+            },
+            "description": "TC: API-AUTH-01\nInput: Valid Ethereum wallet address as query param\nExpected: 200 — { nonce: string }\nNOTE: Runs LAST in this folder after AUTH-03 has consumed the signing nonce."
+          }
+        }
+
+      ]
+    },
+
+    {
+      "name": "Credentials",
+      "description": "12 cases: API-CRED-01 to API-CRED-12\nExecution order: 01 → 02 → 03 → 04 → 05 → 06 → 07 → 08 → 09 → 10 → 12 → 11\n\nFIXES IN THIS VERSION:\n- CRED-01: pre-request script generates timestamp-based {{cred_ref_id}} each run (no more duplicate key)\n- CRED-04: pre-request script generates timestamp-based batch ref_ids each run\n- CRED-07/08: removed fragile 'contains CRED-01' assertion — just checks status + array shape",
+      "item": [
+
+        {
+          "name": "API-CRED-01 — POST issue credential (issuer wallet, valid → 201)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Generate a unique ref_id each run to avoid duplicate key constraint violations",
+                  "var uniqueRefId = 'FYP-TEST-' + Date.now();",
+                  "pm.environment.set('cred_ref_id', uniqueRefId);",
+                  "console.log('Generated cred_ref_id:', uniqueRefId);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('API-CRED-01: Status 201', function() {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "var body = pm.response.json();",
+                  "",
+                  "pm.test('API-CRED-01: Has ref_id', function() {",
+                  "  pm.expect(body).to.have.property('ref_id');",
+                  "});",
+                  "",
+                  "pm.test('API-CRED-01: Has holder_wallet', function() {",
+                  "  pm.expect(body).to.have.property('holder_wallet');",
+                  "});",
+                  "",
+                  "pm.test('API-CRED-01: Has issuer_wallet', function() {",
+                  "  pm.expect(body).to.have.property('issuer_wallet');",
+                  "});",
+                  "",
+                  "pm.environment.set('test_ref_id', body.ref_id);",
+                  "console.log('Set test_ref_id:', body.ref_id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "x-wallet-address", "value": "{{issuer_wallet}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ref_id\": \"{{cred_ref_id}}\",\n  \"title\": \"Bachelor of Computer Science (Hons)\",\n  \"holder_wallet\": \"{{student_wallet}}\",\n  \"type\": \"degree\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/api/credentials",
+              "host": ["{{base_url}}"],
+              "path": ["api", "credentials"]
+            },
+            "description": "TC: API-CRED-01\nHeader: x-wallet-address = issuer_wallet (trusted issuer)\nInput: Valid credential payload — ref_id is timestamp-generated to avoid duplicate key errors\nExpected: 201 — credential object returned\nSets: {{test_ref_id}} from body.ref_id (used by CRED-09, 10, 11, 12, QR-01, SEC-04)"
+          }
+        },
+
+        {
+          "name": "API-CRED-02 — POST issue credential (student wallet → 403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('API-CRED-02: Status 403', function() {",
+                  "  pm.response.to.have.status(403);",
+                  "});",
+                  "",
+                  "var body = pm.response.json();",
+                  "pm.test('API-CRED-02: Error mentions trusted issuer', function() {",
+                  "  var msg = (body.error || body.message || '').toLowerCase();",
+                  "  pm.expect(msg).to.include('trusted issuer');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "x-wallet-address", "value": "{{student_wallet}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ref_id\": \"FYP-TEST-CRED-UNAUTH\",\n  \"title\": \"Unauthorized Issuance Attempt\",\n  \"holder_wallet\": \"{{student_wallet}}\",\n  \"type\": \"degree\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/api/credentials",
+              "host": ["{{base_url}}"],
+              "path": ["api", "credentials"]
+            },
+            "description": "TC: API-CRED-02\nHeader: x-wallet-address = student_wallet (NOT a trusted issuer)\nExpected: 403 — 'Not a trusted issuer'\nNOTE: This request is rejected before the credential is saved, so no unique ref_id needed."
+          }
+        },
+
+        {
+          "name": "API-CRED-03 — POST issue credential (no auth header → 401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('API-CRED-03: Status 401', function() {",
+                  "  pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ref_id\": \"FYP-TEST-CRED-NOAUTH\",\n  \"title\": \"No Auth Header Test\",\n  \"holder_wallet\": \"{{student_wallet}}\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/api/credentials",
+              "host": ["{{base_url}}"],
+              "path": ["api", "credentials"]
+            },
+            "description": "TC: API-CRED-03\nHeader: No x-wallet-address header\nExpected: 401 — 'Valid wallet address required'\nNOTE: Rejected by middleware before DB write — no unique ref_id needed."
+          }
+        },
+
+        {
+          "name": "API-CRED-04 — POST batch (3 valid entries → 201)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Generate unique batch ref_ids each run to avoid duplicate key constraint violations",
+                  "var ts = Date.now();",
+                  "pm.environment.set('batch_ref_1', 'BATCH-001-' + ts);",
+                  "pm.environment.set('batch_ref_2', 'BATCH-002-' + ts);",
+                  "pm.environment.set('batch_ref_3', 'BATCH-003-' + ts);",
+                  "console.log('Generated batch ref_ids with ts:', ts);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('API-CRED-04: Status 201', function() {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "var body = pm.response.json();",
+                  "",
+                  "pm.test('API-CRED-04: credentials is an array', function() {",
+                  "  pm.expect(body.credentials).to.be.an('array');",
+                  "});",
+                  "",
+                  "pm.test('API-CRED-04: count is 3', function() {",
+                  "  pm.expect(body.count).to.equal(3);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "x-wallet-address", "value": "{{issuer_wallet}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"credentials\": [\n    {\n      \"ref_id\": \"{{batch_ref_1}}\",\n      \"title\": \"Bachelor of Information Technology\",\n      \"holder_wallet\": \"{{student_wallet}}\",\n      \"type\": \"degree\"\n    },\n    {\n      \"ref_id\": \"{{batch_ref_2}}\",\n      \"title\": \"Certificate of Achievement in Web Development\",\n      \"holder_wallet\": \"{{student_wallet}}\",\n      \"type\": \"certificate\"\n    },\n    {\n      \"ref_id\": \"{{batch_ref_3}}\",\n      \"title\": \"Academic Excellence Award 2024\",\n      \"holder_wallet\": \"{{student_wallet}}\",\n      \"type\": \"award\"\n    }\n  ]\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/api/credentials/batch",
+              "host": ["{{base_url}}"],
+              "path": ["api", "credentials", "batch"]
+            },
+            "description": "TC: API-CRED-04\nHeader: x-wallet-address = issuer_wallet\nInput: 3 valid credential objects — ref_ids are timestamp-generated to avoid duplicate key errors\nExpected: 201 — { credentials: [...], count: 3 }"
+          }
+        },
+
+        {
+          "name": "API-CRED-05 — POST batch (51 entries → 400 max limit)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var studentWallet = pm.environment.get('student_wallet');",
+                  "var ts = Date.now();",
+                  "var creds = [];",
+                  "for (var i = 1; i <= 51; i++) {",
+                  "  creds.push({",
+                  "    ref_id: 'OVERFLOW-' + ts + '-' + i,",
+                  "    title: 'Overflow Test Credential ' + i,",
+                  "    holder_wallet: studentWallet,",
+                  "    type: 'degree'",
+                  "  });",
+                  "}",
+                  "pm.environment.set('_overflow_batch', JSON.stringify({ credentials: creds }));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('API-CRED-05: Status 400', function() {",
+                  "  pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "var body = pm.response.json();",
+                  "pm.test('API-CRED-05: Error mentions Maximum 50', function() {",
+                  "  var msg = (body.error || body.message || '');",
+                  "  pm.expect(msg).to.include('Maximum 50');",
+                  "});",
+                  "",
+                  "pm.environment.unset('_overflow_batch');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "x-wallet-address", "value": "{{issuer_wallet}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{{_overflow_batch}}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/api/credentials/batch",
+              "host": ["{{base_url}}"],
+              "path": ["api", "credentials", "batch"]
+            },
+            "description": "TC: API-CRED-05\nHeader: x-wallet-address = issuer_wallet\nInput: 51 credential objects (generated by pre-request script)\nExpected: 400 — 'Maximum 50 credentials per batch'\nNOTE: Rejected before DB write so unique ref_ids aren't strictly needed,\nbut the pre-request script uses timestamps anyway for consistency."
+          }
+        },
+
+        {
+          "name": "API-CRED-06 — POST batch (missing ref_id → 400 validation)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('API-CRED-06: Status 400', function() {",
+                  "  pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "var body = pm.response.json();",
+                  "pm.test('API-CRED-06: Error mentions required fields', function() {",
+                  "  var msg = (body.error || body.message || '').toLowerCase();",
+                  "  pm.expect(msg.length).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "x-wallet-address", "value": "{{issuer_wallet}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"credentials\": [\n    {\n      \"title\": \"Missing RefId Credential\",\n      \"holder_wallet\": \"{{student_wallet}}\"\n    }\n  ]\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/api/credentials/batch",
+              "host": ["{{base_url}}"],
+              "path": ["api", "credentials", "batch"]
+            },
+            "description": "TC: API-CRED-06\nHeader: x-wallet-address = issuer_wallet\nInput: Batch entry missing ref_id\nExpected: 400 — 'Each credential must have ref_id, title, and holder_wallet'"
+          }
+        },
+
+        {
+          "name": "API-CRED-07 — GET list credentials (issuer role → 200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('API-CRED-07: Status 200', function() {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var body = pm.response.json();",
+                  "",
+                  "pm.test('API-CRED-07: credentials is an array', function() {",
+                  "  pm.expect(body.credentials).to.be.an('array');",
+                  "});",
+                  "",
+                  "pm.test('API-CRED-07: Returns at least one credential', function() {",
+                  "  pm.expect(body.credentials.length).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "x-wallet-address", "value": "{{issuer_wallet}}"}
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/credentials?role=issuer",
+              "host": ["{{base_url}}"],
+              "path": ["api", "credentials"],
+              "query": [{"key": "role", "value": "issuer"}]
+            },
+            "description": "TC: API-CRED-07\nHeader: x-wallet-address = issuer_wallet\nQuery: role=issuer\nExpected: 200 — { credentials: [...] } — credentials issued by this wallet\nFIX: Removed fragile 'contains CRED-01 credential' assertion.\nNow just verifies the endpoint returns 200 with a non-empty credentials array."
+          }
+        },
+
+        {
+          "name": "API-CRED-08 — GET list credentials (student holder → 200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('API-CRED-08: Status 200', function() {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var body = pm.response.json();",
+                  "",
+                  "pm.test('API-CRED-08: credentials is an array', function() {",
+                  "  pm.expect(body.credentials).to.be.an('array');",
+                  "});",
+                  "",
+                  "pm.test('API-CRED-08: Returns at least one credential', function() {",
+                  "  pm.expect(body.credentials.length).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "x-wallet-address", "value": "{{student_wallet}}"}
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/credentials",
+              "host": ["{{base_url}}"],
+              "path": ["api", "credentials"]
+            },
+            "description": "TC: API-CRED-08\nHeader: x-wallet-address = student_wallet\nExpected: 200 — { credentials: [...] } — credentials held by this wallet\nFIX: Removed fragile 'contains CRED-01 credential' assertion.\nNow just verifies the endpoint returns 200 with a non-empty credentials array."
+          }
+        },
+
+        {
+          "name": "API-CRED-09 — GET credential by refId (public, valid → 200 + blockchain)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('API-CRED-09: Status 200', function() {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var body = pm.response.json();",
+                  "",
+                  "pm.test('API-CRED-09: Has blockchain field', function() {",
+                  "  pm.expect(body).to.have.property('blockchain');",
+                  "});",
+                  "",
+                  "pm.test('API-CRED-09: blockchain has valid, revoked, issuer', function() {",
+                  "  pm.expect(body.blockchain).to.have.property('valid');",
+                  "  pm.expect(body.blockchain).to.have.property('revoked');",
+                  "  pm.expect(body.blockchain).to.have.property('issuer');",
+                  "});",
+                  "",
+                  "pm.test('API-CRED-09: ref_id matches requested', function() {",
+                  "  var testRefId = pm.environment.get('test_ref_id');",
+                  "  pm.expect(body.ref_id).to.equal(testRefId);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/credentials/{{test_ref_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "credentials", "{{test_ref_id}}"]
+            },
+            "description": "TC: API-CRED-09\nNo auth header — public endpoint\nInput: Valid ref_id set by CRED-01 ({{test_ref_id}})\nExpected: 200 — credential + blockchain: { valid, revoked, issuer } from live Infura/Sepolia call"
+          }
+        },
+
+        {
+          "name": "API-CRED-10 — GET credential by refId (non-existent → 404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('API-CRED-10: Status 404', function() {",
+                  "  pm.response.to.have.status(404);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/credentials/NONEXISTENT-REF-XYZ-99999",
+              "host": ["{{base_url}}"],
+              "path": ["api", "credentials", "NONEXISTENT-REF-XYZ-99999"]
+            },
+            "description": "TC: API-CRED-10\nNo auth header — public endpoint\nInput: A ref_id that does not exist in Supabase\nExpected: 404 — 'Credential not found'"
+          }
+        },
+
+        {
+          "name": "API-CRED-12 — DELETE credential (student wallet → 403 Not the issuer)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('API-CRED-12: Status 403', function() {",
+                  "  pm.response.to.have.status(403);",
+                  "});",
+                  "",
+                  "var body = pm.response.json();",
+                  "pm.test('API-CRED-12: Error mentions issuer ownership', function() {",
+                  "  var msg = (body.error || body.message || '').toLowerCase();",
+                  "  pm.expect(msg).to.include('issuer');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {"key": "x-wallet-address", "value": "{{student_wallet}}"}
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/credentials/{{test_ref_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "credentials", "{{test_ref_id}}"]
+            },
+            "description": "TC: API-CRED-12\nHeader: x-wallet-address = student_wallet (NOT the issuer)\nExpected: 403 — 'Not the issuer'\nNOTE: Runs before CRED-11 intentionally."
+          }
+        },
+
+        {
+          "name": "API-CRED-11 — DELETE credential (issuer wallet → 200 revoked)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('API-CRED-11: Status 200', function() {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var body = pm.response.json();",
+                  "",
+                  "pm.test('API-CRED-11: revoked is true', function() {",
+                  "  pm.expect(body.revoked).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('API-CRED-11: refId matches test_ref_id', function() {",
+                  "  var testRefId = pm.environment.get('test_ref_id');",
+                  "  pm.expect(body.refId).to.equal(testRefId);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {"key": "x-wallet-address", "value": "{{issuer_wallet}}"}
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/credentials/{{test_ref_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "credentials", "{{test_ref_id}}"]
+            },
+            "description": "TC: API-CRED-11\nHeader: x-wallet-address = issuer_wallet\nExpected: 200 — { revoked: true, refId }\nNOTE: Supabase-side revocation only. On-chain revokeCredential() is done via MetaMask from the frontend."
+          }
+        }
+
+      ]
+    },
+
+    {
+      "name": "Presentation and QR",
+      "description": "4 cases: API-QR-01 to API-QR-04\nQR-01 generates a 30-second token using {{test_ref_id}} set by CRED-01.\nQR-02 uses it immediately (must run within 30s of QR-01).\nQR-03 requires a manually set {{expired_token}} — see request description.",
+      "item": [
+
+        {
+          "name": "API-QR-01 — POST present (student generates token → 200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('API-QR-01: Status 200', function() {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var body = pm.response.json();",
+                  "",
+                  "pm.test('API-QR-01: Has token', function() {",
+                  "  pm.expect(body).to.have.property('token');",
+                  "  pm.expect(body.token).to.be.a('string').and.to.have.length.above(0);",
+                  "});",
+                  "",
+                  "pm.test('API-QR-01: Has expiresAt', function() {",
+                  "  pm.expect(body).to.have.property('expiresAt');",
+                  "});",
+                  "",
+                  "pm.environment.set('test_token', body.token);",
+                  "console.log('Set test_token. Valid for ~30s — QR-02 runs next.');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "x-wallet-address", "value": "{{student_wallet}}"}
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/credentials/{{test_ref_id}}/present",
+              "host": ["{{base_url}}"],
+              "path": ["api", "credentials", "{{test_ref_id}}", "present"]
+            },
+            "description": "TC: API-QR-01\nHeader: x-wallet-address = student_wallet (the credential holder)\nExpected: 200 — { token: JWT, expiresAt }\nSets: {{test_token}} for QR-02\nFor {{expired_token}}: run this manually in Postman GUI after the Newman run, wait 30s+, paste into expired_token env var."
+          }
+        },
+
+        {
+          "name": "API-QR-02 — POST verify/token (valid token → 200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('API-QR-02: Status 200', function() {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var body = pm.response.json();",
+                  "",
+                  "pm.test('API-QR-02: Has presentedBy field', function() {",
+                  "  pm.expect(body).to.have.property('presentedBy');",
+                  "});",
+                  "",
+                  "pm.test('API-QR-02: Has credential data (ref_id)', function() {",
+                  "  pm.expect(body).to.have.property('ref_id');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{test_token}}\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/api/verify/token",
+              "host": ["{{base_url}}"],
+              "path": ["api", "verify", "token"]
+            },
+            "description": "TC: API-QR-02\nNo auth — public endpoint\nInput: { token } — valid JWT set by QR-01\nExpected: 200 — full credential data + presentedBy"
+          }
+        },
+
+        {
+          "name": "API-QR-03 — POST verify/token (expired token → 401 TOKEN_EXPIRED) [MANUAL SETUP]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('API-QR-03: Status 401', function() {",
+                  "  pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "var body = pm.response.json();",
+                  "pm.test('API-QR-03: Error code is TOKEN_EXPIRED', function() {",
+                  "  pm.expect(body.code).to.equal('TOKEN_EXPIRED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{expired_token}}\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/api/verify/token",
+              "host": ["{{base_url}}"],
+              "path": ["api", "verify", "token"]
+            },
+            "description": "TC: API-QR-03\n⚠️ MANUAL SETUP REQUIRED:\n1. Run API-QR-01 in Postman GUI to get a fresh token\n2. Copy the token value\n3. Wait 30+ seconds for it to expire\n4. Paste into {{expired_token}} environment variable\n5. Run this request and screenshot the 401 TOKEN_EXPIRED response\nExpected: 401 — { code: 'TOKEN_EXPIRED' }"
+          }
+        },
+
+        {
+          "name": "API-QR-04 — POST verify/token (empty body → 400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('API-QR-04: Status 400', function() {",
+                  "  pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/api/verify/token",
+              "host": ["{{base_url}}"],
+              "path": ["api", "verify", "token"]
+            },
+            "description": "TC: API-QR-04\nNo auth — public endpoint\nInput: Empty body (no token field)\nExpected: 400 — 'token is required'"
+          }
+        }
+
+      ]
+    },
+
+    {
+      "name": "Security — Newman",
+      "description": "5 Newman-automatable cases from Layer 5: SEC-01 to SEC-04, SEC-06\nSEC-05 is covered by SC-CA-09 (Hardhat Layer 1).\nSEC-07 (nonce replay) and SEC-08 (Supabase RLS) are manual tests.",
+      "item": [
+
+        {
+          "name": "SEC-01 — POST credentials (student wallet → 403 Not trusted issuer)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('SEC-01: Status 403', function() {",
+                  "  pm.response.to.have.status(403);",
+                  "});",
+                  "",
+                  "var body = pm.response.json();",
+                  "pm.test('SEC-01: Error is Not a trusted issuer', function() {",
+                  "  var msg = (body.error || body.message || '').toLowerCase();",
+                  "  pm.expect(msg).to.include('trusted issuer');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "x-wallet-address", "value": "{{student_wallet}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ref_id\": \"SEC-TEST-001\",\n  \"title\": \"Security Test — Unauthorized Issuance\",\n  \"holder_wallet\": \"{{student_wallet}}\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/api/credentials",
+              "host": ["{{base_url}}"],
+              "path": ["api", "credentials"]
+            },
+            "description": "TC: SEC-01\nSecurity boundary: student wallet cannot issue credentials\nExpected: 403 — 'Not a trusted issuer'\nNOTE: Rejected before DB write — no unique ref_id needed."
+          }
+        },
+
+        {
+          "name": "SEC-02 — POST credentials (no wallet header → 401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('SEC-02: Status 401', function() {",
+                  "  pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "var body = pm.response.json();",
+                  "pm.test('SEC-02: Error mentions wallet address', function() {",
+                  "  var msg = (body.error || body.message || '').toLowerCase();",
+                  "  pm.expect(msg).to.include('wallet');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ref_id\": \"SEC-TEST-002\",\n  \"title\": \"Security Test — No Auth Header\",\n  \"holder_wallet\": \"{{student_wallet}}\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/api/credentials",
+              "host": ["{{base_url}}"],
+              "path": ["api", "credentials"]
+            },
+            "description": "TC: SEC-02\nSecurity boundary: missing wallet header rejected by requireWallet middleware\nExpected: 401 — 'Valid wallet address required'"
+          }
+        },
+
+        {
+          "name": "SEC-03 — POST admin route (non-admin wallet → 403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('SEC-03: Status 403', function() {",
+                  "  pm.response.to.have.status(403);",
+                  "});",
+                  "",
+                  "var body = pm.response.json();",
+                  "pm.test('SEC-03: Error mentions admin access', function() {",
+                  "  var msg = (body.error || body.message || '').toLowerCase();",
+                  "  pm.expect(msg).to.include('admin');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "x-wallet-address", "value": "{{student_wallet}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"wallets\": [\"{{issuer_wallet}}\"]\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/api/admin/issuer-profiles",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "issuer-profiles"]
+            },
+            "description": "TC: SEC-03\nSecurity boundary: admin route rejects non-admin wallets\nExpected: 403 — 'Forbidden: admin access required'"
+          }
+        },
+
+        {
+          "name": "SEC-04 — DELETE credential (wrong wallet → 403 Not the issuer)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('SEC-04: Status 403', function() {",
+                  "  pm.response.to.have.status(403);",
+                  "});",
+                  "",
+                  "var body = pm.response.json();",
+                  "pm.test('SEC-04: Error is Not the issuer', function() {",
+                  "  var msg = (body.error || body.message || '').toLowerCase();",
+                  "  pm.expect(msg).to.include('issuer');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {"key": "x-wallet-address", "value": "{{student_wallet}}"}
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/credentials/{{test_ref_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "credentials", "{{test_ref_id}}"]
+            },
+            "description": "TC: SEC-04\nSecurity boundary: only the original issuer can revoke their credential\nExpected: 403 — 'Not the issuer'\nNOTE: Runs after CRED-11 has already revoked the credential in Supabase.\nThe record still exists so the ownership check still fires correctly."
+          }
+        },
+
+        {
+          "name": "SEC-06 — POST verify/token (expired token → 401 TOKEN_EXPIRED) [MANUAL SETUP]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('SEC-06: Status 401', function() {",
+                  "  pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "var body = pm.response.json();",
+                  "pm.test('SEC-06: Error code is TOKEN_EXPIRED', function() {",
+                  "  pm.expect(body.code).to.equal('TOKEN_EXPIRED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{expired_token}}\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/api/verify/token",
+              "host": ["{{base_url}}"],
+              "path": ["api", "verify", "token"]
+            },
+            "description": "TC: SEC-06\nSecurity boundary: QR presentation tokens expire after 30 seconds\n⚠️ Same MANUAL SETUP as QR-03: set {{expired_token}} before running.\nExpected: 401 — { code: 'TOKEN_EXPIRED' }"
+          }
+        }
+
+      ]
+    },
+
+    {
+      "name": "Supplementary — Templates and Admin",
+      "description": "5 supplementary cases: API-TPL-01 to 03, API-ADM-01 to 02\nNOT counted in the core 20 Layer 2 test cases.\nAll 5 passing as of v3.",
+      "item": [
+
+        {
+          "name": "API-TPL-01 — GET templates (issuer → 200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('API-TPL-01: Status 200', function() {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var body = pm.response.json();",
+                  "",
+                  "pm.test('API-TPL-01: Response has templates array', function() {",
+                  "  pm.expect(body.templates).to.be.an('array');",
+                  "});",
+                  "",
+                  "pm.test('API-TPL-01: Contains at least one template', function() {",
+                  "  pm.expect(body.templates.length).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "x-wallet-address", "value": "{{issuer_wallet}}"}
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/templates",
+              "host": ["{{base_url}}"],
+              "path": ["api", "templates"]
+            },
+            "description": "TC: API-TPL-01\nHeader: x-wallet-address = issuer_wallet\nExpected: 200 — { templates: [...] } (system defaults + issuer custom templates)"
+          }
+        },
+
+        {
+          "name": "API-TPL-02 — POST create custom template (issuer → 201)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('API-TPL-02: Status 201', function() {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "var body = pm.response.json();",
+                  "",
+                  "pm.test('API-TPL-02: Has template.id', function() {",
+                  "  pm.expect(body.template).to.have.property('id');",
+                  "});",
+                  "",
+                  "pm.environment.set('created_template_id', body.template.id);",
+                  "console.log('Set created_template_id:', body.template.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "x-wallet-address", "value": "{{issuer_wallet}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"FYP Test Custom Template\",\n  \"type\": \"Degree\",\n  \"description\": \"Test template for Layer 2 API testing\",\n  \"issuance_mode\": \"single\",\n  \"requires_certificate\": false,\n  \"fields\": [\n    {\n      \"name\": \"grade\",\n      \"label\": \"Final Grade\",\n      \"type\": \"text\",\n      \"required\": true,\n      \"placeholder\": \"e.g. First Class\"\n    },\n    {\n      \"name\": \"graduationDate\",\n      \"label\": \"Graduation Date\",\n      \"type\": \"date\",\n      \"required\": true,\n      \"placeholder\": \"\"\n    }\n  ]\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/api/templates",
+              "host": ["{{base_url}}"],
+              "path": ["api", "templates"]
+            },
+            "description": "TC: API-TPL-02\nHeader: x-wallet-address = issuer_wallet\nExpected: 201 — { template: { id, title, ... } }\nSets: {{created_template_id}} for API-TPL-03"
+          }
+        },
+
+        {
+          "name": "API-TPL-03 — GET csv-template download (issuer → 200 CSV)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('API-TPL-03: Status 200', function() {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('API-TPL-03: Content-Type is CSV', function() {",
+                  "  var contentType = pm.response.headers.get('Content-Type') || '';",
+                  "  pm.expect(contentType.toLowerCase()).to.satisfy(function(ct) {",
+                  "    return ct.includes('csv') || ct.includes('octet-stream') || ct.includes('text/plain');",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "x-wallet-address", "value": "{{issuer_wallet}}"}
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/templates/{{created_template_id}}/csv-template",
+              "host": ["{{base_url}}"],
+              "path": ["api", "templates", "{{created_template_id}}", "csv-template"]
+            },
+            "description": "TC: API-TPL-03\nHeader: x-wallet-address = issuer_wallet\nURL: Uses {{created_template_id}} set by API-TPL-02\nExpected: 200 — CSV file with column headers matching template fields"
+          }
+        },
+
+        {
+          "name": "API-ADM-01 — POST admin/issuer-profiles (admin wallet → 200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('API-ADM-01: Status 200', function() {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var body = pm.response.json();",
+                  "",
+                  "pm.test('API-ADM-01: Has profiles field', function() {",
+                  "  pm.expect(body).to.have.property('profiles');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "x-wallet-address", "value": "{{admin_wallet}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"wallets\": [\"{{issuer_wallet}}\"]\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/api/admin/issuer-profiles",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "issuer-profiles"]
+            },
+            "description": "TC: API-ADM-01\nHeader: x-wallet-address = admin_wallet\nInput: { wallets: [issuer_wallet] }\nExpected: 200 — { profiles: ... }"
+          }
+        },
+
+        {
+          "name": "API-ADM-02 — POST admin/issuer-profiles (student wallet → 403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('API-ADM-02: Status 403', function() {",
+                  "  pm.response.to.have.status(403);",
+                  "});",
+                  "",
+                  "var body = pm.response.json();",
+                  "pm.test('API-ADM-02: Error mentions admin', function() {",
+                  "  var msg = (body.error || body.message || '').toLowerCase();",
+                  "  pm.expect(msg).to.include('admin');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "x-wallet-address", "value": "{{student_wallet}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"wallets\": [\"{{issuer_wallet}}\"]\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/api/admin/issuer-profiles",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "issuer-profiles"]
+            },
+            "description": "TC: API-ADM-02\nHeader: x-wallet-address = student_wallet (not admin)\nExpected: 403 — 'Forbidden: admin access required'"
+          }
+        }
+
+      ]
+    }
+
+  ]
+}

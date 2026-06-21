@@ -1,0 +1,106 @@
+{
+  "id": "idenvault-dev-env-v3",
+  "name": "IdenVault Dev Environment",
+  "values": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3001",
+      "type": "default",
+      "enabled": true,
+      "description": "Backend base URL. Change to Raspberry Pi IP if testing on device."
+    },
+    {
+      "key": "admin_wallet",
+      "value": "0x761bAa235206EE9107f09777608A021824bc10fD",
+      "type": "default",
+      "enabled": true,
+      "description": "Must match ADMIN_WALLET env var in backend .env."
+    },
+    {
+      "key": "issuer_wallet",
+      "value": "0xd74557C826c691c9D1132F0161434091F37Cf10F",
+      "type": "default",
+      "enabled": true,
+      "description": "A wallet registered as a trusted issuer in IssuerRegistry on Sepolia."
+    },
+    {
+      "key": "student_wallet",
+      "value": "0xecF55BfA753367446BC8983f0a04350e561cB666",
+      "type": "default",
+      "enabled": true,
+      "description": "Any wallet NOT in IssuerRegistry. Used as credential holder and unauthorized requester."
+    },
+    {
+      "key": "issuer_sig",
+      "value": "0x49a24e10d6aeb6527ef92a4a34930538ffb7a1ee8d5aeda938214a16b6b1575a20b244b88e9e4708dfd963a5e66bdb2fd14062b774b9adce70f95e1b9d9d80fc1c",
+      "type": "default",
+      "enabled": true,
+      "description": "Set by generate-test-sig.js BEFORE every Newman run. Fresh signature for the current nonce. Do NOT request a new nonce after setting this."
+    },
+    {
+      "key": "cred_ref_id",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "Auto-set by CRED-01 pre-request script. Timestamp-based ref_id generated fresh each run to avoid duplicate key errors."
+    },
+    {
+      "key": "batch_ref_1",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "Auto-set by CRED-04 pre-request script. Timestamp-based batch ref_id."
+    },
+    {
+      "key": "batch_ref_2",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "Auto-set by CRED-04 pre-request script. Timestamp-based batch ref_id."
+    },
+    {
+      "key": "batch_ref_3",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "Auto-set by CRED-04 pre-request script. Timestamp-based batch ref_id."
+    },
+    {
+      "key": "test_ref_id",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "Auto-set by CRED-01 test script from body.ref_id. Used by CRED-09, 10, 11, 12, QR-01, SEC-04."
+    },
+    {
+      "key": "test_token",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "Auto-set by QR-01 test script. Used by QR-02. Valid for ~30 seconds."
+    },
+    {
+      "key": "expired_token",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "MANUAL STEP: After Newman run, run QR-01 in Postman GUI, wait 30+ seconds, paste the token here. Used by QR-03 and SEC-06."
+    },
+    {
+      "key": "created_template_id",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "Auto-set by API-TPL-02 test script from body.template.id. Used by API-TPL-03."
+    },
+    {
+      "key": "_overflow_batch",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "Internal — auto-set and auto-cleared by CRED-05 pre-request script. 51-item batch payload."
+    }
+  ],
+  "_postman_variable_scope": "environment",
+  "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+}

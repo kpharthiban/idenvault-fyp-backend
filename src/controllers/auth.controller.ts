@@ -20,7 +20,13 @@ export const verifyWallet = async (req: Request, res: Response, next: NextFuncti
     const expectedNonce = nonceStore.get(wallet.toLowerCase());
     if (!expectedNonce) return res.status(400).json({ error: 'Request a nonce first' });
 
-    const recovered = ethers.verifyMessage(expectedNonce, signature).toLowerCase();
+    let recovered: string;
+    try {
+      recovered = ethers.verifyMessage(expectedNonce, signature).toLowerCase();
+    } catch {
+      return res.status(401).json({ error: 'Signature verification failed' });
+    }
+    
     if (recovered !== wallet.toLowerCase()) {
       return res.status(401).json({ error: 'Signature verification failed' });
     }
