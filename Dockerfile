@@ -26,4 +26,4 @@ COPY --from=builder /app/dist ./dist
 EXPOSE 3001
 
 # Adjust if your entry point differs (check tsconfig "outDir")
-CMD ["node", "dist/index.js"]
+CMD ["node", "dist/server.js"]
