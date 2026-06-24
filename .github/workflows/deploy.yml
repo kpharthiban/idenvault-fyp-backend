@@ -1,0 +1,42 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    name: Build & Deploy to Droplet
+    runs-on: [self-hosted, linux, idenvault-backend]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create .env file from GitHub Secrets
+        run: |
+          cat > .env << 'ENVEOF'
+          PORT=3001
+          SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}
+          INFURA_URL=${{ secrets.INFURA_URL }}
+          PINATA_JWT=${{ secrets.PINATA_JWT }}
+          ADMIN_WALLET=${{ secrets.ADMIN_WALLET }}
+          FRONTEND_URL=${{ secrets.FRONTEND_URL }}
+          PRESENTATION_TOKEN_SECRET=${{ secrets.PRESENTATION_TOKEN_SECRET }}
+          ENVEOF
+
+      - name: Stop existing container
+        run: docker compose down --remove-orphans || true
+
+      - name: Build & start container
+        run: docker compose up -d --build
+
+      - name: Clean up unused Docker images
+        run: docker image prune -f
+
+      - name: Verify container is running
+        run: |
+          sleep 5
+          docker compose ps
+          docker compose logs --tail=20
