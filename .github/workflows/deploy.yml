@@ -21,6 +21,7 @@ jobs:
           SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}
           INFURA_URL=${{ secrets.INFURA_URL }}
           PINATA_JWT=${{ secrets.PINATA_JWT }}
+          GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
           ADMIN_WALLET=${{ secrets.ADMIN_WALLET }}
           FRONTEND_URL=${{ secrets.FRONTEND_URL }}
           PRESENTATION_TOKEN_SECRET=${{ secrets.PRESENTATION_TOKEN_SECRET }}
